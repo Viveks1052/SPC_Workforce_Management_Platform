@@ -606,11 +606,11 @@ export default function CandidateFormModal({
                                   </span>
                                 </div>
 
-                                {/* Strictly 1 Line Core Focus & Deliverables */}
+                                {/* Strictly 1 Line Experience Snapshot */}
                                 <div className="mt-1 p-2 bg-white rounded-lg border border-slate-200/80 text-[11px] flex items-start gap-1.5 text-slate-700">
                                   <Sparkles className="w-3 h-3 text-indigo-500 shrink-0 mt-0.5" />
                                   <div className="leading-snug">
-                                    <strong className="text-slate-900 font-semibold">Core Focus &amp; Impact: </strong>
+                                    <strong className="text-slate-900 font-semibold">Experience Snapshot: </strong>
                                     <span>{stintAiAnalysis}</span>
                                   </div>
                                 </div>
@@ -958,7 +958,7 @@ export default function CandidateFormModal({
                               <div>
                                 <label className="block text-[11px] font-medium text-slate-700 mb-1 flex items-center gap-1.5">
                                   <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                                  Core Focus &amp; Impact (1-Line):
+                                  Experience Snapshot (1-Line):
                                 </label>
                                 <input
                                   type="text"
@@ -969,7 +969,7 @@ export default function CandidateFormModal({
                                     setFormData({ ...formData, employmentHistory: h });
                                   }}
                                   className="w-full px-3 py-1.5 text-xs border border-indigo-200 rounded-lg bg-white font-medium text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100"
-                                  placeholder="One-line core focus or deliverables..."
+                                  placeholder="One-line experience snapshot..."
                                 />
                               </div>
                             </div>
