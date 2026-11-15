@@ -184,19 +184,22 @@ export default function OriginalResumeViewer({
       {/* Pane Top Header */}
       <div className="px-4 py-3 bg-white border-b border-slate-200 flex items-center justify-between gap-2 flex-shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center flex-shrink-0 border border-red-100">
-            <FileText className="w-4 h-4" />
-          </div>
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-50 text-red-700 border border-red-200/80 shadow-2xs shrink-0">
+            <FileText className="w-3.5 h-3.5 text-red-600 shrink-0" />
+            <span className="text-[10px] font-extrabold tracking-wider uppercase">PDF</span>
+          </span>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-xs text-slate-900 truncate" title={filename}>
-                {filename}
+              <span className="font-bold text-xs sm:text-sm text-slate-900 truncate">
+                Original Resume
               </span>
               <span className="px-1.5 py-0.5 text-[10px] font-bold bg-red-100 text-red-700 rounded">
                 ORIGINAL PDF
               </span>
             </div>
-            <p className="text-[11px] text-slate-500">Candidate's Uploaded Document</p>
+            <p className="text-[11px] text-slate-500 truncate" title={filename}>
+              <span>Candidate&apos;s Uploaded Document</span> • {filename}
+            </p>
           </div>
         </div>
 
@@ -235,8 +238,8 @@ export default function OriginalResumeViewer({
       </div>
 
       {/* Actual PDF Document Render Area (A4 Paper Styling) */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 flex justify-center">
-        <div className="w-full max-w-[760px] bg-white rounded-lg shadow-md border border-slate-300/80 p-8 md:p-10 text-slate-900 font-sans space-y-5 text-[12px] leading-relaxed select-text">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="w-full max-w-[760px] mx-auto h-fit bg-white rounded-lg shadow-md border border-slate-300/80 p-8 md:p-10 text-slate-900 font-sans space-y-5 text-[12px] leading-relaxed select-text">
           
           {/* Header */}
           <div className="border-b border-slate-300 pb-4">

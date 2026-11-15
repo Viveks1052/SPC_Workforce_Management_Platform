@@ -1234,9 +1234,13 @@ export default function JobDetail() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h2 className="text-lg font-bold text-slate-800">Close Job Opening</h2>
-              <button onClick={() => setShowCloseModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <ChevronRight className="w-5 h-5 opacity-0" /> {/* Spacer */}
-                <span className="sr-only">Close</span>
+              <button
+                type="button"
+                onClick={() => setShowCloseModal(false)}
+                aria-label="Close"
+                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
             
@@ -1301,12 +1305,17 @@ export default function JobDetail() {
       )}
 
       {showHoldModal && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h2 className="text-lg font-semibold text-slate-800">Put Job on Hold</h2>
-              <button onClick={() => setShowHoldModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <span className="sr-only">Close</span>
+              <button
+                type="button"
+                onClick={() => setShowHoldModal(false)}
+                aria-label="Close"
+                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
             

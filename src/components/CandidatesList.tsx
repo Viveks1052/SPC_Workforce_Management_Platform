@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, AlertTriangle, Plus, X, CheckCircle2 } from 'lucide-react';
+import { Search, AlertTriangle, Plus, X, CheckCircle2, Sparkles } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
@@ -78,9 +78,30 @@ export default function CandidatesList() {
     <div className="space-y-6 pt-2">
       <div className="flex justify-between items-center">
         <p className="text-slate-600">View candidate profiles and their applications across client jobs.</p>
-        <button onClick={() => setShowUpload(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-          <Plus className="w-4 h-4" />
-          Add Candidate
+        <button
+          onClick={() => setShowUpload(true)}
+          className="group flex items-center gap-2 pl-4 pr-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-all shadow-sm hover:shadow"
+        >
+          <svg width="0" height="0" className="absolute">
+            <defs>
+              <linearGradient id="ai-cta-sparkle-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#8b5cf6" />
+                <stop offset="50%" stopColor="#ec4899" />
+                <stop offset="100%" stopColor="#f59e0b" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <Plus className="w-4 h-4 stroke-[2.5]" />
+          <span>Add Candidate</span>
+          <span className="ml-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/95 shadow-xs border border-white/40 group-hover:scale-105 transition-transform">
+            <Sparkles
+              className="w-3 h-3 shrink-0"
+              style={{ fill: 'url(#ai-cta-sparkle-gradient)', stroke: 'url(#ai-cta-sparkle-gradient)' }}
+            />
+            <span className="bg-gradient-to-r from-violet-600 via-pink-500 to-amber-500 bg-clip-text text-transparent text-[10px] font-extrabold tracking-wider uppercase">
+              AI
+            </span>
+          </span>
         </button>
       </div>
 
@@ -205,29 +226,21 @@ export default function CandidatesList() {
       {/* Full-Screen Smart Upload Modal */}
       {showUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-4xl max-h-[95vh] flex flex-col bg-slate-50 rounded-2xl shadow-xl overflow-hidden border border-slate-200">
-            <button
-              onClick={() => setShowUpload(false)}
-              className="absolute top-4 right-4 z-10 p-2 bg-white text-slate-400 hover:text-slate-600 rounded-full shadow-sm hover:shadow border border-slate-200 transition-all"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <div className="flex-1 overflow-y-auto flex items-center justify-center p-8">
-              <SmartCandidateUpload
-                onExtractionSuccess={(data, meta) => {
-                  setExtractedData({
-                    ...data,
-                    resumeUrl: meta.originalFilename,
-                    resumeFileUrl: meta.fileUrl,
-                    rawResumeText: meta.rawResumeText,
-                    sourceMetadata: meta,
-                  });
-                  setShowUpload(false);
-                  setShowReviewForm(true);
-                }}
-                onCancel={() => setShowUpload(false)}
-              />
-            </div>
+          <div className="relative w-full max-w-2xl">
+            <SmartCandidateUpload
+              onExtractionSuccess={(data, meta) => {
+                setExtractedData({
+                  ...data,
+                  resumeUrl: meta.originalFilename,
+                  resumeFileUrl: meta.fileUrl,
+                  rawResumeText: meta.rawResumeText,
+                  sourceMetadata: meta,
+                });
+                setShowUpload(false);
+                setShowReviewForm(true);
+              }}
+              onCancel={() => setShowUpload(false)}
+            />
           </div>
         </div>
       )}

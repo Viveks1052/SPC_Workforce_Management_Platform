@@ -19,9 +19,10 @@ interface SmartCandidateUploadProps {
     }
   ) => void;
   onCancel: () => void;
+  showCloseButton?: boolean;
 }
 
-export default function SmartCandidateUpload({ onExtractionSuccess, onCancel }: SmartCandidateUploadProps) {
+export default function SmartCandidateUpload({ onExtractionSuccess, onCancel, showCloseButton = true }: SmartCandidateUploadProps) {
   const [mode, setMode] = useState<'upload' | 'paste'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [rawText, setRawText] = useState('');
@@ -294,11 +295,33 @@ ACHIEVEMENT
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[460px] w-full max-w-2xl mx-auto p-6 bg-white rounded-2xl shadow-sm border border-slate-200">
+    <div className="relative flex flex-col items-center justify-center min-h-[460px] w-full max-w-2xl mx-auto p-6 bg-white rounded-2xl shadow-sm border border-slate-200">
+      {showCloseButton && (
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Close"
+          className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      )}
       <div className="text-center mb-6">
+        <svg width="0" height="0" className="absolute">
+          <defs>
+            <linearGradient id="ai-parser-sparkle-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#8b5cf6" />
+              <stop offset="50%" stopColor="#ec4899" />
+              <stop offset="100%" stopColor="#f59e0b" />
+            </linearGradient>
+          </defs>
+        </svg>
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/80 mb-3">
-          <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-          AI Dual-Resume Side-by-Side Comparison
+          <Sparkles
+            className="w-3.5 h-3.5 shrink-0"
+            style={{ fill: 'url(#ai-parser-sparkle-gradient)', stroke: 'url(#ai-parser-sparkle-gradient)' }}
+          />
+          AI Resume Parser
         </div>
         <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Upload Candidate Resume</h2>
         <p className="text-slate-500 text-xs sm:text-sm mt-1">
@@ -437,7 +460,10 @@ ACHIEVEMENT
               disabled={mode === 'upload' ? !file : !rawText.trim()}
               className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm flex items-center gap-1.5"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Sparkles
+                className="w-3.5 h-3.5 shrink-0 drop-shadow-[0_0_2px_rgba(255,255,255,0.65)]"
+                style={{ fill: 'url(#ai-parser-sparkle-gradient)', stroke: 'url(#ai-parser-sparkle-gradient)' }}
+              />
               Parse & Launch Dual-Resume View
             </button>
           </div>
@@ -451,7 +477,10 @@ ACHIEVEMENT
                 onClick={loadSample}
                 className="px-3.5 py-2 text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl border border-blue-200 shadow-sm transition-all flex items-center gap-2 group"
               >
-                <Sparkles className="w-3.5 h-3.5 text-blue-600 group-hover:scale-110 transition-transform" />
+                <Sparkles
+                  className="w-3.5 h-3.5 shrink-0 group-hover:scale-110 transition-transform"
+                  style={{ fill: 'url(#ai-parser-sparkle-gradient)', stroke: 'url(#ai-parser-sparkle-gradient)' }}
+                />
                 <span>Load Shobhit Saxena (AI Product Manager)</span>
               </button>
             </div>

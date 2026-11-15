@@ -72,33 +72,43 @@ export default function AddCandidateToJobModal({ jobId, isOpen, onClose, onSucce
                 </p>
               </div>
 
-              {/* Mode Switcher */}
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl self-start sm:self-auto">
+              {/* Mode Switcher & Close */}
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setActiveMode('upload')}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                      activeMode === 'upload'
+                        ? "bg-white text-blue-700 shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    )}
+                  >
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>Upload &amp; Parse Resume</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveMode('pool')}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                      activeMode === 'pool'
+                        ? "bg-white text-blue-700 shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    )}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Select from Candidate Pool</span>
+                  </button>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setActiveMode('upload')}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                    activeMode === 'upload'
-                      ? "bg-white text-blue-700 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  )}
+                  onClick={onClose}
+                  aria-label="Close"
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
                 >
-                  <UploadCloud className="w-3.5 h-3.5" />
-                  <span>Upload &amp; Parse Resume</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveMode('pool')}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                    activeMode === 'pool'
-                      ? "bg-white text-blue-700 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  )}
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>Select from Candidate Pool</span>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -108,6 +118,7 @@ export default function AddCandidateToJobModal({ jobId, isOpen, onClose, onSucce
               {activeMode === 'upload' ? (
                 <div className="flex items-center justify-center">
                   <SmartCandidateUpload
+                    showCloseButton={false}
                     onExtractionSuccess={(data, meta) => {
                       setExtractedData({
                         ...data,

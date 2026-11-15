@@ -13,7 +13,7 @@ import SearchableSelect from './SearchableSelect';
 import Pagination from './Pagination';
 
 export default function ClientsList() {
-  const { clients, projects, applications, currentUser, createClient, deleteClient } = useApp();
+  const { clients, projects, jobs, applications, currentUser, createClient, deleteClient } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [editingClient, setEditingClient] = useState<Client | undefined>(undefined);
@@ -102,10 +102,22 @@ export default function ClientsList() {
         {paginatedClients.map(client => {
           const isSelected = selectedClientId === client.id;
           const clientProjects = projects.filter(p => p.clientId === client.id);
-          const openPositionsCount = clientProjects.reduce((acc, p) => {
-            const filled = applications.filter(a => a.projectId === p.id && a.currentStage === 'Joined').length;
+          const projectOpenPositions = clientProjects.reduce((acc, p) => {
+            const filled = applications.filter(
+              a => a.projectId === p.id && (a.currentStage === 'Joined' || a.currentStage === 'Hired/Placed')
+            ).length;
             return acc + Math.max(p.totalRequestedHeadcount - filled, 0);
           }, 0);
+          const standaloneClientJobs = jobs.filter(
+            j => j.clientId === client.id && (!j.projectId || j.projectId === 'none') && j.status !== 'Closed'
+          );
+          const standaloneJobOpenPositions = standaloneClientJobs.reduce((acc, j) => {
+            const filled = applications.filter(
+              a => a.jobId === j.id && (a.currentStage === 'Joined' || a.currentStage === 'Hired/Placed')
+            ).length;
+            return acc + Math.max(j.openings - filled, 0);
+          }, 0);
+          const openPositionsCount = projectOpenPositions + standaloneJobOpenPositions;
           
           return (
             <div 

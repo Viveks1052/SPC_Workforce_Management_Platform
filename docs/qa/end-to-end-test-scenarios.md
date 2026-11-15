@@ -498,3 +498,24 @@ This document specifies the end-to-end testing scenarios required to validate th
 - **Status**: PASSED
 - **Evidence**: Unit and integration test suite passing.
 
+---
+
+### Scenario: TEST-CLI-02 - Create Linked Job Directly from Client Detail Drawer
+- **Requirement IDs**: CLI-005, JOB-003, JOB-004, JOB-005
+- **Preconditions**: Active session on `/clients`. Client selected in `ClientDetailDrawer` on the `Linked Jobs` tab.
+- **Execution Steps**:
+  1. Navigate to `/clients`, click on a client (e.g., `NorthStar Healthcare Services`), and open the `Linked Jobs` tab.
+  2. Click `+ Create Job` in the Client Job Openings bar (or `Create First Job` in the empty state).
+  3. Verify the modal displays the two-path selection screen following the Projects design pattern: `Upload JD Document` (Smart Extraction) and `Create Manually`.
+  4. Choose `Create Manually`:
+     - Verify the `Client` field is pre-selected and locked to the active client.
+     - Optionally select an active Client Project and verify the live headcount allocation banner (`Total Project Headcount`, `Already Allocated`, `Available to Allocate`) and max openings cap.
+     - Select a `Hiring Model` (`Client Hire` or `SPC Hire`), operating location chip, required skills, summary, target joining date, and application deadline.
+     - Verify integrity checks block invalid openings or `applicationDeadline > targetJoiningDate`.
+  5. Test `Save as Draft` (creates an internal Draft job with `isPublished: false`) and `Create & Open Job` (triggers the `Confirm Job Activation & Publication` step before opening/publishing).
+  6. Confirm the new job immediately appears in the Client's `Linked Jobs` list, increments `Active Jobs` and `Open Positions`, activates an `Inactive` client to `Active`, and appears in `/job-desk`.
+- **Expected Result**: Jobs created from a client's Linked Jobs tab enforce all headcount, hiring model, and lifecycle integrity rules and synchronize across Clients and Job Desk.
+- **Actual Result**: Verified via TypeScript check and Vitest suite (`src/lib/client.test.ts`).
+- **Status**: PASSED
+- **Evidence**: All unit and component tests passing.
+

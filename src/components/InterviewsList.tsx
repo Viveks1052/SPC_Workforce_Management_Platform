@@ -15,8 +15,20 @@ import { getInterviewFeedbackSummary, getInterviewEndTime, normalizeInterviewers
 import InterviewHistoryDrawer from './InterviewHistoryDrawer';
 import RecruiterOutcomeModal from './RecruiterOutcomeModal';
 import Pagination from './Pagination';
+import { mockUsers } from '../data/mockData';
 
-type SummaryTab = 'Upcoming' | 'Today' | 'Feedback Pending' | 'Overdue' | 'No Show' | 'Completed' | 'Cancelled' | 'All Interviews';
+type SummaryTab = 'All Interviews' | 'Upcoming' | 'Today' | 'Feedback Pending' | 'Overdue' | 'Completed' | 'No Show' | 'Cancelled';
+
+const SUMMARY_TABS: SummaryTab[] = [
+  'All Interviews',
+  'Upcoming',
+  'Today',
+  'Feedback Pending',
+  'Overdue',
+  'Completed',
+  'No Show',
+  'Cancelled',
+];
 
 export default function InterviewsList() {
   const { 
@@ -36,20 +48,29 @@ export default function InterviewsList() {
   const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState<Record<string, string>>({ clientId: '', jobId: '', interviewerName: '', interviewType: '', roundName: '' });
+  const [filters, setFilters] = useState<Record<string, string>>({
+    clientId: '',
+    jobId: '',
+    interviewerName: '',
+    assignedRecruiterId: '',
+    mode: '',
+    interviewType: '',
+    recruiterOutcome: '',
+    noShowWho: '',
+  });
   const [datePreset, setDatePreset] = useState<DatePreset>('All Time');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
-  const [activeTab, setActiveTab] = useState<SummaryTab>('Upcoming');
+  const [activeTab, setActiveTab] = useState<SummaryTab>('All Interviews');
 
-  // Primary Filters
+  // Primary Quick Filters
   const [interviewStatusFilter, setInterviewStatusFilter] = useState<string>('All');
   const [roundFilter, setRoundFilter] = useState<string>('All');
   const [feedbackStatusFilter, setFeedbackStatusFilter] = useState<string>('All');
-  const [noShowFilter, setNoShowFilter] = useState<string>('All');
 
   const [historyDrawerAppId, setHistoryDrawerAppId] = useState<string | null>(null);
   const [selectedInterviewForOutcome, setSelectedInterviewForOutcome] = useState<Interview | null>(null);
+  const [nextRoundToSchedule, setNextRoundToSchedule] = useState<number | undefined>(undefined);
 
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
@@ -92,32 +113,23 @@ export default function InterviewsList() {
   const [noShowForm, setNoShowForm] = useState({ who: 'Candidate' as 'Candidate' | 'Interviewer' | 'Both', note: '' });
   const [rejectionReason, setRejectionReason] = useState('');
 
-  const uniqueTypes = Array.from(new Set(interviews.map(i => i.interviewType))).filter(Boolean) as string[];
-  const uniqueClients = Array.from(new Set(interviews.map(i => i.clientId))).map(id => clients.find(c => c.id === id)).filter(Boolean);
-  const uniqueJobs = Array.from(new Set(interviews.map(i => i.jobId))).map(id => jobs.find(j => j.id === id)).filter(Boolean);
-  const uniqueInterviewers = Array.from(new Set(interviews.map(i => i.interviewerName))).filter(Boolean) as string[];
-  const uniqueRounds = Array.from(new Set(interviews.map(i => i.roundName))).filter(Boolean) as string[];
-
-  const filterFields: FilterField[] = [
-    { key: 'clientId', label: 'Client', options: uniqueClients.map(c => ({ value: c!.id, label: c!.name })) },
-    { key: 'jobId', label: 'Job', options: uniqueJobs.map(j => ({ value: j!.id, label: j!.title })) },
-    { key: 'interviewerName', label: 'Interviewer', options: uniqueInterviewers.map(i => ({ value: i, label: i })) },
-    { key: 'interviewType', label: 'Interview Type', options: uniqueTypes.map(t => ({ value: t, label: t })) },
-    { key: 'roundName', label: 'Interview Round', options: uniqueRounds.map(r => ({ value: r, label: r })) },
-  ];
-
   const now = new Date();
   const todayStr = now.toISOString().split('T')[0];
 
-  // Map over interviews to derive precise status properties for UI
+  // Map over interviews to derive precise status, panelist list, and recruiter properties for UI & filtering
   const enrichedInterviews = useMemo(() => {
     return interviews.map(iv => {
       const start = new Date(iv.scheduledAt);
       const end = getInterviewEndTime(iv);
       const fbSummary = getInterviewFeedbackSummary(iv, now);
+      const panelists = normalizeInterviewers(iv);
+      const job = jobs.find(j => j.id === iv.jobId);
+      const app = applications.find(a => a.id === iv.applicationId);
+      const assignedRecruiterId = app?.assignedRecruiterId || job?.assignedRecruiterId || '';
+      const isRescheduled = iv.status === 'Rescheduled' || Boolean(iv.rescheduledAt);
       let isOverdue = false;
 
-      if (iv.status === 'Scheduled' && end < now) {
+      if ((iv.status === 'Scheduled' || iv.status === 'Rescheduled') && end < now) {
         isOverdue = true;
       }
 
@@ -126,71 +138,446 @@ export default function InterviewsList() {
         start,
         end,
         isOverdue,
+        isRescheduled,
         fbSummary,
+        panelists,
+        assignedRecruiterId,
         derivedDisplayStatus: isOverdue ? 'Overdue' : iv.status
       };
     });
-  }, [interviews, now]);
+  }, [interviews, jobs, applications, now]);
 
-  const summaryCounts = useMemo(() => {
-    return {
-      'Upcoming': enrichedInterviews.filter(iv => iv.status === 'Scheduled' && !iv.isOverdue && iv.start > now && !iv.scheduledAt.startsWith(todayStr)).length,
-      'Today': enrichedInterviews.filter(iv => iv.status === 'Scheduled' && iv.scheduledAt.startsWith(todayStr)).length,
-      'Feedback Pending': enrichedInterviews.filter(iv => iv.status === 'Completed' && (iv.fbSummary.status === 'Pending' || iv.fbSummary.status === 'Partially Received')).length,
-      'Overdue': enrichedInterviews.filter(iv => iv.isOverdue && iv.status === 'Scheduled').length,
-      'No Show': enrichedInterviews.filter(iv => iv.status === 'No Show').length,
-      'Completed': enrichedInterviews.filter(iv => iv.status === 'Completed').length,
-      'Cancelled': enrichedInterviews.filter(iv => iv.status === 'Cancelled').length,
-      'All Interviews': enrichedInterviews.length,
-    };
-  }, [enrichedInterviews, now, todayStr]);
+  // Unique options derived from actual interviews + cascading Client -> Job logic
+  const uniqueClients = useMemo(() => {
+    const ids = Array.from(new Set(interviews.map(i => i.clientId)));
+    return ids.map(id => clients.find(c => c.id === id)).filter(Boolean) as typeof clients;
+  }, [interviews, clients]);
 
-  const filtered = enrichedInterviews.filter(iv => {
-    const candidate = candidates.find(c => c.id === iv.candidateId);
-    const job = jobs.find(j => j.id === iv.jobId);
-    const client = clients.find(c => c.id === iv.clientId);
+  const scopedJobs = useMemo(() => {
+    const jobIds = Array.from(
+      new Set(
+        interviews
+          .filter(i => !filters.clientId || i.clientId === filters.clientId)
+          .map(i => i.jobId)
+      )
+    );
+    return jobIds.map(id => jobs.find(j => j.id === id)).filter(Boolean) as typeof jobs;
+  }, [interviews, jobs, filters.clientId]);
 
-    const matchSearch = !searchTerm || 
-      candidate?.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      job?.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      iv.interviewerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      iv.interviewType.toLowerCase().includes(searchTerm.toLowerCase());
+  const uniqueInterviewers = useMemo(() => {
+    const names = new Set<string>();
+    enrichedInterviews.forEach(iv => {
+      if (iv.interviewerName) names.add(iv.interviewerName);
+      iv.panelists.forEach(p => {
+        if (p.name) names.add(p.name);
+      });
+    });
+    return Array.from(names);
+  }, [enrichedInterviews]);
 
-    const matchClient = !filters.clientId || iv.clientId === filters.clientId;
-    const matchJob = !filters.jobId || iv.jobId === filters.jobId;
-    const matchInterviewer = !filters.interviewerName || iv.interviewerName === filters.interviewerName;
-    const matchType = !filters.interviewType || iv.interviewType === filters.interviewType;
-    const matchRound = !filters.roundName || iv.roundName === filters.roundName;
-    
-    const matchDate = isDateInPreset(iv.scheduledAt, datePreset, customStart, customEnd);
+  const uniqueRecruiters = useMemo(() => {
+    const recIds = Array.from(new Set(enrichedInterviews.map(iv => iv.assignedRecruiterId).filter(Boolean)));
+    return recIds
+      .map(id => mockUsers.find(u => u.id === id))
+      .filter(Boolean) as typeof mockUsers;
+  }, [enrichedInterviews]);
 
-    const matchStatus = interviewStatusFilter === 'All' || iv.status === interviewStatusFilter;
-    
-    const matchRoundNumber = roundFilter === 'All' || 
-      (roundFilter === 'Round 1' && (iv.roundNumber === 1 || !iv.roundNumber)) ||
-      (roundFilter === 'Round 2' && iv.roundNumber === 2) ||
-      (roundFilter === 'Round 3+' && (iv.roundNumber || 0) >= 3);
+  const uniqueTypes = useMemo(() => {
+    return Array.from(new Set(interviews.map(i => i.interviewType).filter(Boolean))) as string[];
+  }, [interviews]);
 
-    const matchFeedbackStatus = feedbackStatusFilter === 'All' || iv.fbSummary.status === feedbackStatusFilter;
+  const uniqueModes = useMemo(() => {
+    const defaultModes = ['Video', 'In-person', 'Phone', 'Manual Link'];
+    const dataModes = interviews.map(i => i.mode).filter(Boolean);
+    return Array.from(new Set([...defaultModes, ...dataModes]));
+  }, [interviews]);
 
-    const matchNoShow = noShowFilter === 'All' || 
-      (iv.status === 'No Show' && (iv.noShowWho === noShowFilter || (!iv.noShowWho && noShowFilter === 'Candidate')));
+  const filterFields: FilterField[] = useMemo(() => [
+    {
+      key: 'clientId',
+      label: 'Client',
+      options: uniqueClients.map(c => ({ value: c.id, label: c.name })),
+    },
+    {
+      key: 'jobId',
+      label: filters.clientId ? 'Job / Role (Selected Client)' : 'Job / Role',
+      options: scopedJobs.map(j => ({ value: j.id, label: `${j.title} (${j.code})` })),
+    },
+    {
+      key: 'status',
+      label: 'Interview Status',
+      options: [
+        { value: 'Scheduled', label: 'Scheduled' },
+        { value: 'Rescheduled', label: 'Rescheduled' },
+        { value: 'Overdue', label: 'Overdue (Action Needed)' },
+        { value: 'Completed', label: 'Completed' },
+        { value: 'No Show', label: 'No Show' },
+        { value: 'Cancelled', label: 'Cancelled' },
+      ],
+    },
+    {
+      key: 'round',
+      label: 'Interview Round',
+      options: [
+        { value: 'Round 1', label: 'Round 1' },
+        { value: 'Round 2', label: 'Round 2' },
+        { value: 'Round 3+', label: 'Round 3+' },
+      ],
+    },
+    {
+      key: 'feedbackStatus',
+      label: 'Feedback Status',
+      options: [
+        { value: 'Not Due', label: 'Not Due' },
+        { value: 'Pending', label: 'Pending' },
+        { value: 'Partially Received', label: 'Partially Received' },
+        { value: 'Received', label: 'Received' },
+      ],
+    },
+    {
+      key: 'datePreset',
+      label: 'Schedule Date',
+      options: [
+        { value: 'Today', label: 'Today' },
+        { value: 'Last 7 Days', label: 'Last 7 Days' },
+        { value: 'Last 30 Days', label: 'Last 30 Days' },
+        { value: 'This Month', label: 'This Month' },
+        { value: 'Last Quarter', label: 'Last Quarter' },
+      ],
+    },
+    {
+      key: 'interviewerName',
+      label: 'Interviewer / Panelist',
+      options: uniqueInterviewers.map(i => ({ value: i, label: i })),
+    },
+    {
+      key: 'assignedRecruiterId',
+      label: 'Assigned Recruiter',
+      options: uniqueRecruiters.map(u => ({ value: u.id, label: u.name })),
+    },
+    {
+      key: 'mode',
+      label: 'Interview Mode',
+      options: uniqueModes.map(m => ({ value: m, label: m })),
+    },
+    {
+      key: 'interviewType',
+      label: 'Interview Type',
+      options: uniqueTypes.map(t => ({ value: t, label: t })),
+    },
+    {
+      key: 'recruiterOutcome',
+      label: 'Recruiter Outcome',
+      options: [
+        { value: 'Pending Decision', label: 'Outcome Pending (Completed)' },
+        { value: 'Next Round', label: 'Next Round' },
+        { value: 'Selected', label: 'Selected' },
+        { value: 'Rejected', label: 'Rejected' },
+        { value: 'On Hold', label: 'On Hold' },
+        { value: 'Additional Discussion Required', label: 'Discussion Required' },
+      ],
+    },
+    {
+      key: 'noShowWho',
+      label: 'No-Show Party',
+      options: [
+        { value: 'Candidate', label: 'Candidate No-Show' },
+        { value: 'Interviewer', label: 'Interviewer No-Show' },
+        { value: 'Both', label: 'Both' },
+      ],
+    },
+  ], [uniqueClients, filters.clientId, scopedJobs, uniqueInterviewers, uniqueRecruiters, uniqueModes, uniqueTypes]);
 
-    let matchTab = true;
-    switch(activeTab) {
-      case 'Upcoming': matchTab = iv.status === 'Scheduled' && !iv.isOverdue && iv.start > now && !iv.scheduledAt.startsWith(todayStr); break;
-      case 'Today': matchTab = iv.status === 'Scheduled' && iv.scheduledAt.startsWith(todayStr); break;
-      case 'Feedback Pending': matchTab = iv.status === 'Completed' && (iv.fbSummary.status === 'Pending' || iv.fbSummary.status === 'Partially Received'); break;
-      case 'Overdue': matchTab = iv.isOverdue && iv.status === 'Scheduled'; break;
-      case 'No Show': matchTab = iv.status === 'No Show'; break;
-      case 'Completed': matchTab = iv.status === 'Completed'; break;
-      case 'Cancelled': matchTab = iv.status === 'Cancelled'; break;
-      default: matchTab = true;
+  // Permutation-safe state transitions so tabs and filters never conflict
+  const handleTabSelect = (tab: SummaryTab) => {
+    setActiveTab(tab);
+
+    // Sync status filter with selected tab
+    if (tab === 'Completed') {
+      setInterviewStatusFilter('Completed');
+    } else if (tab === 'No Show') {
+      setInterviewStatusFilter('No Show');
+    } else if (tab === 'Cancelled') {
+      setInterviewStatusFilter('Cancelled');
+    } else if (tab === 'Overdue') {
+      setInterviewStatusFilter('Overdue');
+    } else {
+      setInterviewStatusFilter('All');
     }
 
-    return matchSearch && matchClient && matchJob && matchInterviewer && matchType && matchRound && matchDate && matchStatus && matchRoundNumber && matchFeedbackStatus && matchNoShow && matchTab;
-  }).sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+    // Clear incompatible sub-filters to prevent impossible 0-result permutations
+    setFilters(prev => {
+      const next = { ...prev };
+      if (tab !== 'No Show' && tab !== 'All Interviews') {
+        next.noShowWho = '';
+      }
+      if (tab === 'Upcoming' || tab === 'Today' || tab === 'No Show' || tab === 'Cancelled') {
+        next.recruiterOutcome = '';
+      }
+      return next;
+    });
+
+    if (tab === 'No Show' || tab === 'Cancelled') {
+      setFeedbackStatusFilter('All');
+    } else if ((tab === 'Upcoming' || tab === 'Today') && feedbackStatusFilter !== 'All' && feedbackStatusFilter !== 'Not Due') {
+      setFeedbackStatusFilter('All');
+    } else if (tab === 'Feedback Pending' && (feedbackStatusFilter === 'Not Due' || feedbackStatusFilter === 'Received')) {
+      setFeedbackStatusFilter('All');
+    } else if (tab === 'Completed' && feedbackStatusFilter === 'Not Due') {
+      setFeedbackStatusFilter('All');
+    }
+
+    if (tab === 'Today' && datePreset !== 'All Time' && datePreset !== 'Today') {
+      setDatePreset('All Time');
+      setCustomStart('');
+      setCustomEnd('');
+    }
+  };
+
+  const handleStatusFilterChange = (status: string) => {
+    setInterviewStatusFilter(status);
+    if (status === 'Completed') {
+      setActiveTab('Completed');
+    } else if (status === 'No Show') {
+      setActiveTab('No Show');
+    } else if (status === 'Cancelled') {
+      setActiveTab('Cancelled');
+    } else if (status === 'Overdue') {
+      setActiveTab('Overdue');
+    } else {
+      setActiveTab('All Interviews');
+    }
+
+    setFilters(prev => {
+      const next = { ...prev };
+      if (status !== 'No Show' && status !== 'All') {
+        next.noShowWho = '';
+      }
+      if (status === 'No Show' || status === 'Cancelled' || status === 'Scheduled') {
+        next.recruiterOutcome = '';
+      }
+      return next;
+    });
+
+    if (status === 'No Show' || status === 'Cancelled') {
+      setFeedbackStatusFilter('All');
+    }
+  };
+
+  const handleFeedbackFilterChange = (fbStatus: string) => {
+    setFeedbackStatusFilter(fbStatus);
+    if (fbStatus !== 'All') {
+      if (
+        activeTab === 'No Show' ||
+        activeTab === 'Cancelled' ||
+        ((activeTab === 'Upcoming' || activeTab === 'Today') && fbStatus !== 'Not Due') ||
+        (activeTab === 'Feedback Pending' && (fbStatus === 'Not Due' || fbStatus === 'Received')) ||
+        (activeTab === 'Completed' && fbStatus === 'Not Due')
+      ) {
+        setActiveTab('All Interviews');
+      }
+      if (interviewStatusFilter === 'No Show' || interviewStatusFilter === 'Cancelled') {
+        setInterviewStatusFilter('All');
+      }
+      if (fbStatus === 'Received' || fbStatus === 'Partially Received') {
+        setFilters(prev => ({ ...prev, noShowWho: '' }));
+      }
+    }
+  };
+
+  const handleClientFilterChange = (clientId: string) => {
+    setFilters(prev => {
+      const next = { ...prev, clientId };
+      if (clientId && prev.jobId) {
+        const selectedJob = jobs.find(j => j.id === prev.jobId);
+        if (selectedJob && selectedJob.clientId !== clientId) {
+          next.jobId = '';
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleAdvancedFilterChange = (key: string, value: string) => {
+    if (key === 'status') {
+      handleStatusFilterChange(value || 'All');
+      return;
+    }
+    if (key === 'clientId') {
+      handleClientFilterChange(value);
+      return;
+    }
+    if (key === 'round') {
+      setRoundFilter(value || 'All');
+      return;
+    }
+    if (key === 'feedbackStatus') {
+      handleFeedbackFilterChange(value || 'All');
+      return;
+    }
+    if (key === 'datePreset') {
+      const nextPreset = (value || 'All Time') as DatePreset;
+      setDatePreset(nextPreset);
+      setCustomStart('');
+      setCustomEnd('');
+      if (nextPreset !== 'All Time' && (activeTab === 'Today' || activeTab === 'Upcoming')) {
+        setActiveTab('All Interviews');
+      }
+      return;
+    }
+
+    setFilters(prev => {
+      const next = { ...prev, [key]: value };
+
+      // Cascading Job -> Client check
+      if (key === 'jobId' && value) {
+        const job = jobs.find(j => j.id === value);
+        if (job && prev.clientId && prev.clientId !== job.clientId) {
+          next.clientId = job.clientId;
+        }
+      }
+
+      // Selecting a No-Show Party automatically switches to No Show status/tab
+      if (key === 'noShowWho' && value) {
+        setInterviewStatusFilter('No Show');
+        setActiveTab('No Show');
+        setFeedbackStatusFilter('All');
+        next.recruiterOutcome = '';
+      }
+
+      // Selecting a Recruiter Outcome ensures status/tab allows completed/evaluated rounds
+      if (key === 'recruiterOutcome' && value) {
+        next.noShowWho = '';
+        if (activeTab === 'Upcoming' || activeTab === 'Today' || activeTab === 'No Show' || activeTab === 'Cancelled') {
+          setActiveTab('All Interviews');
+        }
+        if (interviewStatusFilter === 'No Show' || interviewStatusFilter === 'Cancelled' || interviewStatusFilter === 'Scheduled') {
+          setInterviewStatusFilter('All');
+        }
+      }
+
+      return next;
+    });
+  };
+
+  const resetAllFilters = () => {
+    setFilters({
+      clientId: '',
+      jobId: '',
+      interviewerName: '',
+      assignedRecruiterId: '',
+      mode: '',
+      interviewType: '',
+      recruiterOutcome: '',
+      noShowWho: '',
+    });
+    setDatePreset('All Time');
+    setCustomStart('');
+    setCustomEnd('');
+    setInterviewStatusFilter('All');
+    setRoundFilter('All');
+    setFeedbackStatusFilter('All');
+    setSearchTerm('');
+    setActiveTab('All Interviews');
+  };
+
+  // Base contextual filter (Search + Client + Job + Interviewer + Recruiter + Round + Mode + Type + Date)
+  // Used so Summary Tab counts reflect the user's active filter context!
+  const contextFilteredInterviews = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return enrichedInterviews.filter(iv => {
+      const candidate = candidates.find(c => c.id === iv.candidateId);
+      const job = jobs.find(j => j.id === iv.jobId);
+      const client = clients.find(c => c.id === iv.clientId);
+
+      const matchSearch = !q ||
+        candidate?.fullName.toLowerCase().includes(q) ||
+        candidate?.code?.toLowerCase().includes(q) ||
+        job?.title.toLowerCase().includes(q) ||
+        job?.code?.toLowerCase().includes(q) ||
+        client?.name.toLowerCase().includes(q) ||
+        iv.interviewerName.toLowerCase().includes(q) ||
+        iv.panelists.some(p => p.name.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q)) ||
+        (iv.interviewType && iv.interviewType.toLowerCase().includes(q)) ||
+        (iv.roundName && iv.roundName.toLowerCase().includes(q)) ||
+        (iv.recruiterOutcome && iv.recruiterOutcome.toLowerCase().includes(q));
+
+      const matchClient = !filters.clientId || iv.clientId === filters.clientId;
+      const matchJob = !filters.jobId || iv.jobId === filters.jobId;
+      const matchInterviewer = !filters.interviewerName ||
+        iv.interviewerName === filters.interviewerName ||
+        iv.panelists.some(p => p.name === filters.interviewerName);
+      const matchRecruiter = !filters.assignedRecruiterId || iv.assignedRecruiterId === filters.assignedRecruiterId;
+      const matchMode = !filters.mode || iv.mode === filters.mode;
+      const matchType = !filters.interviewType || iv.interviewType === filters.interviewType;
+
+      const matchRoundNumber = roundFilter === 'All' ||
+        (roundFilter === 'Round 1' && (iv.roundNumber === 1 || (!iv.roundNumber && iv.roundName === 'Round 1') || !iv.roundNumber)) ||
+        (roundFilter === 'Round 2' && (iv.roundNumber === 2 || iv.roundName === 'Round 2')) ||
+        (roundFilter === 'Round 3+' && ((iv.roundNumber || 0) >= 3));
+
+      // Support both prototype dataset reference date and live system date
+      const matchDate = datePreset === 'All Time' ||
+        isDateInPreset(iv.scheduledAt, datePreset, customStart, customEnd) ||
+        isDateInPreset(iv.scheduledAt, datePreset, customStart, customEnd, now);
+
+      return matchSearch && matchClient && matchJob && matchInterviewer && matchRecruiter && matchMode && matchType && matchRoundNumber && matchDate;
+    });
+  }, [enrichedInterviews, candidates, jobs, clients, searchTerm, filters, roundFilter, datePreset, customStart, customEnd, now]);
+
+  const matchesTabRule = (iv: typeof enrichedInterviews[number], tab: SummaryTab) => {
+    switch (tab) {
+      case 'Upcoming':
+        return (iv.status === 'Scheduled' || iv.status === 'Rescheduled') && !iv.isOverdue && iv.start > now;
+      case 'Today':
+        return (iv.status === 'Scheduled' || iv.status === 'Rescheduled') && iv.scheduledAt.startsWith(todayStr);
+      case 'Feedback Pending':
+        return (iv.status === 'Completed' || iv.isOverdue) && (iv.fbSummary.status === 'Pending' || iv.fbSummary.status === 'Partially Received');
+      case 'Overdue':
+        return iv.isOverdue && (iv.status === 'Scheduled' || iv.status === 'Rescheduled');
+      case 'No Show':
+        return iv.status === 'No Show';
+      case 'Completed':
+        return iv.status === 'Completed';
+      case 'Cancelled':
+        return iv.status === 'Cancelled';
+      case 'All Interviews':
+      default:
+        return true;
+    }
+  };
+
+  const summaryCounts = useMemo(() => {
+    const counts = {} as Record<SummaryTab, number>;
+    SUMMARY_TABS.forEach(tab => {
+      counts[tab] = contextFilteredInterviews.filter(iv => matchesTabRule(iv, tab)).length;
+    });
+    return counts;
+  }, [contextFilteredInterviews, now, todayStr]);
+
+  const filtered = useMemo(() => {
+    return contextFilteredInterviews.filter(iv => {
+      const matchStatus =
+        interviewStatusFilter === 'All' ||
+        (interviewStatusFilter === 'Overdue' ? iv.isOverdue :
+         interviewStatusFilter === 'Rescheduled' ? iv.isRescheduled :
+         iv.status === interviewStatusFilter);
+
+      const matchFeedbackStatus = feedbackStatusFilter === 'All' || iv.fbSummary.status === feedbackStatusFilter;
+
+      const matchNoShow = !filters.noShowWho ||
+        (iv.status === 'No Show' && (iv.noShowWho === filters.noShowWho || (!iv.noShowWho && filters.noShowWho === 'Candidate')));
+
+      const matchOutcome = !filters.recruiterOutcome ||
+        (filters.recruiterOutcome === 'Pending Decision'
+          ? (iv.status === 'Completed' && !iv.recruiterOutcome)
+          : iv.recruiterOutcome === filters.recruiterOutcome);
+
+      const matchTab = matchesTabRule(iv, activeTab);
+
+      return matchStatus && matchFeedbackStatus && matchNoShow && matchOutcome && matchTab;
+    }).sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
+  }, [contextFilteredInterviews, interviewStatusFilter, feedbackStatusFilter, filters.noShowWho, filters.recruiterOutcome, activeTab, now, todayStr]);
 
   // Pagination state (10 interviews per page)
   const [currentPage, setCurrentPage] = useState(1);
@@ -198,19 +585,90 @@ export default function InterviewsList() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filters, activeTab, interviewStatusFilter, roundFilter, feedbackStatusFilter, noShowFilter, datePreset, customStart, customEnd]);
+  }, [searchTerm, filters, activeTab, interviewStatusFilter, roundFilter, feedbackStatusFilter, datePreset, customStart, customEnd]);
 
   const paginatedInterviews = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filtered.slice(start, start + itemsPerPage);
   }, [filtered, currentPage]);
 
-  const activeFiltersCount = Object.values(filters).filter(Boolean).length + 
-    (datePreset !== 'All Time' ? 1 : 0) +
-    (interviewStatusFilter !== 'All' ? 1 : 0) +
-    (roundFilter !== 'All' ? 1 : 0) +
-    (feedbackStatusFilter !== 'All' ? 1 : 0) +
-    (noShowFilter !== 'All' ? 1 : 0);
+  // Values passed into FilterPanel (all filters unified inside Filters button)
+  const filterPanelValues = useMemo(() => ({
+    clientId: filters.clientId,
+    jobId: filters.jobId,
+    status: interviewStatusFilter === 'All' ? '' : interviewStatusFilter,
+    round: roundFilter === 'All' ? '' : roundFilter,
+    feedbackStatus: feedbackStatusFilter === 'All' ? '' : feedbackStatusFilter,
+    datePreset: datePreset === 'All Time' ? '' : datePreset,
+    interviewerName: filters.interviewerName,
+    assignedRecruiterId: filters.assignedRecruiterId,
+    mode: filters.mode,
+    interviewType: filters.interviewType,
+    recruiterOutcome: filters.recruiterOutcome,
+    noShowWho: filters.noShowWho,
+  }), [filters, interviewStatusFilter, roundFilter, feedbackStatusFilter, datePreset]);
+
+  // Build active filter pills for transparent one-click removal
+  const activeFilterChips = useMemo(() => {
+    const chips: { key: string; label: string; onRemove: () => void }[] = [];
+
+    if (filters.clientId) {
+      const cName = clients.find(c => c.id === filters.clientId)?.name || filters.clientId;
+      chips.push({ key: 'clientId', label: `Client: ${cName}`, onRemove: () => handleClientFilterChange('') });
+    }
+    if (filters.jobId) {
+      const jTitle = jobs.find(j => j.id === filters.jobId)?.title || filters.jobId;
+      chips.push({ key: 'jobId', label: `Job: ${jTitle}`, onRemove: () => setFilters(prev => ({ ...prev, jobId: '' })) });
+    }
+    if (interviewStatusFilter !== 'All') {
+      chips.push({
+        key: 'status',
+        label: `Status: ${interviewStatusFilter}`,
+        onRemove: () => handleStatusFilterChange('All'),
+      });
+    }
+    if (roundFilter !== 'All') {
+      chips.push({ key: 'round', label: `Round: ${roundFilter}`, onRemove: () => setRoundFilter('All') });
+    }
+    if (feedbackStatusFilter !== 'All') {
+      chips.push({ key: 'feedback', label: `Feedback: ${feedbackStatusFilter}`, onRemove: () => setFeedbackStatusFilter('All') });
+    }
+    if (filters.interviewerName) {
+      chips.push({ key: 'interviewerName', label: `Interviewer: ${filters.interviewerName}`, onRemove: () => setFilters(prev => ({ ...prev, interviewerName: '' })) });
+    }
+    if (filters.assignedRecruiterId) {
+      const rName = mockUsers.find(u => u.id === filters.assignedRecruiterId)?.name || filters.assignedRecruiterId;
+      chips.push({ key: 'assignedRecruiterId', label: `Recruiter: ${rName}`, onRemove: () => setFilters(prev => ({ ...prev, assignedRecruiterId: '' })) });
+    }
+    if (filters.mode) {
+      chips.push({ key: 'mode', label: `Mode: ${filters.mode}`, onRemove: () => setFilters(prev => ({ ...prev, mode: '' })) });
+    }
+    if (filters.interviewType) {
+      chips.push({ key: 'interviewType', label: `Type: ${filters.interviewType}`, onRemove: () => setFilters(prev => ({ ...prev, interviewType: '' })) });
+    }
+    if (filters.recruiterOutcome) {
+      chips.push({ key: 'recruiterOutcome', label: `Outcome: ${filters.recruiterOutcome}`, onRemove: () => setFilters(prev => ({ ...prev, recruiterOutcome: '' })) });
+    }
+    if (filters.noShowWho) {
+      chips.push({ key: 'noShowWho', label: `No-Show: ${filters.noShowWho}`, onRemove: () => setFilters(prev => ({ ...prev, noShowWho: '' })) });
+    }
+    if (datePreset !== 'All Time') {
+      const dateLabel = datePreset === 'Custom' ? `${customStart || 'Any'} to ${customEnd || 'Any'}` : datePreset;
+      chips.push({
+        key: 'datePreset',
+        label: `Schedule Date: ${dateLabel}`,
+        onRemove: () => {
+          setDatePreset('All Time');
+          setCustomStart('');
+          setCustomEnd('');
+        },
+      });
+    }
+
+    return chips;
+  }, [filters, interviewStatusFilter, roundFilter, feedbackStatusFilter, datePreset, customStart, customEnd, clients, jobs]);
+
+  const activeFiltersCount = activeFilterChips.length + (searchTerm.trim() ? 1 : 0);
 
   // Handlers
   const handleFeedbackSubmit = (e: React.FormEvent) => {
@@ -408,170 +866,128 @@ export default function InterviewsList() {
           <p className="text-slate-600 mt-1">Schedule and manage Candidate interviews across active Jobs and Clients.</p>
         </div>
         <button 
-          onClick={() => setIsScheduleModalOpen(true)}
+          onClick={() => {
+            setSelectedInterview(null);
+            setNextRoundToSchedule(undefined);
+            setIsScheduleModalOpen(true);
+          }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
         >
           <Calendar className="w-4 h-4" />
-          <Plus className="w-4 h-4 -ml-1" />
           Schedule Interview
         </button>
       </div>
 
-      {/* Summary Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-        {(Object.keys(summaryCounts) as SummaryTab[]).map(tab => (
+      {/* Summary Tabs (Workflow Queues) */}
+      <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
+        {SUMMARY_TABS.map(tab => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => handleTabSelect(tab)}
             className={cn(
-              "whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium transition-colors border",
+              "whitespace-nowrap px-3.5 py-2 rounded-lg text-sm font-medium transition-colors border flex items-center gap-1.5",
               activeTab === tab
-                ? "bg-blue-50 text-blue-700 border-blue-200"
+                ? "bg-blue-50 text-blue-700 border-blue-200 shadow-2xs"
                 : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
             )}
           >
-            {tab} <span className={cn(
-              "ml-1.5 px-1.5 py-0.5 rounded text-xs",
-              activeTab === tab ? "bg-blue-200 text-blue-800" : "bg-slate-100 text-slate-500"
-            )}>{summaryCounts[tab]}</span>
+            <span>{tab}</span>
+            <span className={cn(
+              "px-1.5 py-0.5 rounded text-xs font-semibold",
+              activeTab === tab ? "bg-blue-200/80 text-blue-800" : "bg-slate-100 text-slate-500"
+            )}>
+              {summaryCounts[tab]}
+            </span>
           </button>
         ))}
       </div>
 
-      {/* Primary Filters Toolbar */}
-      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
+      {/* Unified Search & Filters Toolbar (Consistent SPC Design Pattern) */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+          {/* Search Input (Fixed generous width on sm+ screens, never stretches full card width on large screens) */}
+          <div className="relative w-full sm:w-[380px] md:w-[440px] shrink-0">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input 
               type="text" 
-              placeholder="Search candidate, job, client, interviewer..." 
+              placeholder="Search by candidate, job, client, interviewer, or round..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:bg-white outline-none transition-all"
+              className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded"
+                aria-label="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Single Unified Filters Button */}
+          <div className="flex items-center justify-end">
+            <FilterPanel
+              fields={filterFields}
+              values={filterPanelValues}
+              onChange={handleAdvancedFilterChange}
+              onClear={resetAllFilters}
             />
           </div>
-
-          {/* Primary Filter 1: Interview Status */}
-          <div className="flex items-center gap-1.5">
-            <label className="text-xs font-medium text-slate-500 whitespace-nowrap">Status:</label>
-            <select
-              value={interviewStatusFilter}
-              onChange={(e) => setInterviewStatusFilter(e.target.value)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="All">All Statuses</option>
-              <option value="Scheduled">Scheduled</option>
-              <option value="Rescheduled">Rescheduled</option>
-              <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
-              <option value="No Show">No Show</option>
-            </select>
-          </div>
-
-          {/* Primary Filter 2: Round Number */}
-          <div className="flex items-center gap-1.5">
-            <label className="text-xs font-medium text-slate-500 whitespace-nowrap">Round:</label>
-            <select
-              value={roundFilter}
-              onChange={(e) => setRoundFilter(e.target.value)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="All">All Rounds</option>
-              <option value="Round 1">Round 1</option>
-              <option value="Round 2">Round 2</option>
-              <option value="Round 3+">Round 3+</option>
-            </select>
-          </div>
-
-          {/* Primary Filter 3: Feedback Status */}
-          <div className="flex items-center gap-1.5">
-            <label className="text-xs font-medium text-slate-500 whitespace-nowrap">Feedback:</label>
-            <select
-              value={feedbackStatusFilter}
-              onChange={(e) => setFeedbackStatusFilter(e.target.value)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="All">All Feedback</option>
-              <option value="Not Due">Not Due</option>
-              <option value="Pending">Pending</option>
-              <option value="Partially Received">Partially Received</option>
-              <option value="Received">Received</option>
-            </select>
-          </div>
-
-          {/* Primary Filter 4: No Show Type */}
-          <div className="flex items-center gap-1.5">
-            <label className="text-xs font-medium text-slate-500 whitespace-nowrap">No Show:</label>
-            <select
-              value={noShowFilter}
-              onChange={(e) => setNoShowFilter(e.target.value)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="All">All No Shows</option>
-              <option value="Candidate">Candidate</option>
-              <option value="Interviewer">Interviewer</option>
-              <option value="Both">Both</option>
-            </select>
-          </div>
-
-          {/* Primary Filter 5: Date Range */}
-          <DateRangeFilter
-            preset={datePreset}
-            customStart={customStart}
-            customEnd={customEnd}
-            onChange={(preset, start, end) => {
-              setDatePreset(preset);
-              setCustomStart(start);
-              setCustomEnd(end);
-            }}
-          />
-
-          <FilterPanel
-            fields={filterFields}
-            values={filters}
-            onChange={(k, v) => setFilters({ ...filters, [k]: v })}
-            onClear={() => {
-              setFilters({ clientId: '', jobId: '', interviewerName: '', interviewType: '', roundName: '' });
-              setDatePreset('All Time');
-              setCustomStart('');
-              setCustomEnd('');
-              setInterviewStatusFilter('All');
-              setRoundFilter('All');
-              setFeedbackStatusFilter('All');
-              setNoShowFilter('All');
-            }}
-          />
-
-          {activeFiltersCount > 0 && (
-            <button
-              onClick={() => {
-                setFilters({ clientId: '', jobId: '', interviewerName: '', interviewType: '', roundName: '' });
-                setDatePreset('All Time');
-                setCustomStart('');
-                setCustomEnd('');
-                setInterviewStatusFilter('All');
-                setRoundFilter('All');
-                setFeedbackStatusFilter('All');
-                setNoShowFilter('All');
-                setSearchTerm('');
-              }}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors ml-auto"
-            >
-              Reset Filters ({activeFiltersCount})
-            </button>
-          )}
         </div>
 
-        <div className="text-xs text-slate-500 font-medium flex items-center justify-between pt-1 border-t border-slate-100">
+        {/* Active Filter Chips */}
+        {activeFilterChips.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {activeFilterChips.map(chip => (
+              <span
+                key={chip.key}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200"
+              >
+                {chip.label}
+                <button
+                  type="button"
+                  onClick={chip.onRemove}
+                  className="hover:text-blue-900 focus:outline-none"
+                  aria-label={`Remove ${chip.label} filter`}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={resetAllFilters}
+              className="text-xs text-slate-500 hover:text-blue-600 font-medium px-2 py-1 rounded hover:bg-slate-100 transition-colors"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
+
+        {/* Footer Count & Active Queue Indicator */}
+        <div className="text-xs text-slate-500 font-medium flex items-center justify-between pt-2 border-t border-slate-100">
           <span>
             {filtered.length > 0 ? (
               <>Showing <span className="font-semibold text-slate-700">{((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, filtered.length)}</span> of <span className="font-semibold text-slate-700">{filtered.length}</span> interviews</>
             ) : (
               '0 interviews found'
             )}
+            {activeTab !== 'All Interviews' && (
+              <span className="text-slate-400 ml-1.5">• Queue: <strong className="text-slate-600">{activeTab}</strong></span>
+            )}
           </span>
+          {(activeFiltersCount > 0 || activeTab !== 'All Interviews') && (
+            <button
+              type="button"
+              onClick={resetAllFilters}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+            >
+              Reset View
+            </button>
+          )}
         </div>
       </div>
 
@@ -775,7 +1191,18 @@ export default function InterviewsList() {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                    No interviews found matching your criteria.
+                    <div className="flex flex-col items-center gap-2">
+                      <span>No interviews found matching your criteria.</span>
+                      {(activeFiltersCount > 0 || activeTab !== 'All Interviews') && (
+                        <button
+                          type="button"
+                          onClick={resetAllFilters}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors"
+                        >
+                          View All Interviews ({interviews.length})
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )}
@@ -1173,9 +1600,11 @@ export default function InterviewsList() {
         onClose={() => {
           setIsScheduleModalOpen(false);
           setSelectedInterview(null);
+          setNextRoundToSchedule(undefined);
         }}
         initialCandidateId={selectedInterview?.candidateId}
         initialJobId={selectedInterview?.jobId}
+        initialRoundNumber={nextRoundToSchedule}
       />
 
       {/* Interview History Drawer */}
@@ -1186,6 +1615,7 @@ export default function InterviewsList() {
           applicationId={historyDrawerAppId}
           onScheduleNextRound={(candidateId, jobId, nextRoundNum) => {
             setSelectedInterview({ candidateId, jobId } as any);
+            setNextRoundToSchedule(nextRoundNum);
             setIsScheduleModalOpen(true);
             setHistoryDrawerAppId(null);
           }}
@@ -1204,6 +1634,7 @@ export default function InterviewsList() {
               candidateId: selectedInterviewForOutcome.candidateId,
               jobId: selectedInterviewForOutcome.jobId
             } as any);
+            setNextRoundToSchedule(nextRound);
             setSelectedInterviewForOutcome(null);
             setIsScheduleModalOpen(true);
           }}

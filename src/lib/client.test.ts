@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { describe, it, expect } from 'vitest';
-import { Client, PrimaryIndustry } from '../types';
+import { Client, PrimaryIndustry, Job } from '../types';
+import { getAllocatedOpenings, getUnallocatedPositions } from './headcount';
 
 describe('Client Editing and Validation', () => {
   it('should validate primary contact email format', () => {
@@ -14,7 +15,7 @@ describe('Client Editing and Validation', () => {
 
   it('should reject duplicate client names case-insensitively', () => {
     const clients: Client[] = [
-      { id: '1', name: 'Acme Corp', industry: 'OTHER', status: 'Active', locations: [], activeRequirementsCount: 0, openPositionsCount: 0, lastActivity: '', primaryContactName: '', primaryContactEmail: '', primaryContactPhone: '' }
+      { id: '1', name: 'Acme Corp', industry: 'OTHER', status: 'Active', locations: [], activeProjectsCount: 0, openPositionsCount: 0, lastActivity: '', primaryContactName: '', primaryContactEmail: '', primaryContactPhone: '' }
     ];
     
     const checkDuplicate = (name: string, excludeId?: string) => {
@@ -46,5 +47,33 @@ describe('Client Editing and Validation', () => {
     expect(isDirty({ name: 'Test', industry: 'BFSI' })).toBe(false);
     expect(isDirty({ name: 'Test Updated', industry: 'BFSI' })).toBe(true);
     expect(isDirty({ name: 'Test', industry: 'OTHER' })).toBe(true);
+  });
+
+  it('should enforce project headcount allocation bounds and lifecycle integrity when creating a client-linked job', () => {
+    const existingJobs = [
+      { id: 'j1', projectId: 'r1', clientId: 'c1', openings: 15, status: 'Open' },
+    ] as Job[];
+
+    const allocated = getAllocatedOpenings('r1', existingJobs);
+    const unallocated = getUnallocatedPositions('r1', 25, existingJobs);
+
+    expect(allocated).toBe(15);
+    expect(unallocated).toBe(10);
+
+    // Integrity check: openings exceeding unallocated positions must be rejected
+    const validateOpenings = (openings: number, maxAvailable: number) =>
+      openings >= 1 && openings <= maxAvailable;
+
+    expect(validateOpenings(10, unallocated)).toBe(true);
+    expect(validateOpenings(11, unallocated)).toBe(false);
+    expect(validateOpenings(0, unallocated)).toBe(false);
+
+    // Integrity check: Draft jobs must never be published
+    const computePublishedFlag = (status: 'Draft' | 'Open', visibility: 'Public' | 'Internal') =>
+      status === 'Open' && visibility === 'Public';
+
+    expect(computePublishedFlag('Draft', 'Public')).toBe(false);
+    expect(computePublishedFlag('Open', 'Internal')).toBe(false);
+    expect(computePublishedFlag('Open', 'Public')).toBe(true);
   });
 });

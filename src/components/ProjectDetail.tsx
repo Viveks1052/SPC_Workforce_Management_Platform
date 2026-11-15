@@ -660,25 +660,42 @@ export default function ProjectDetail() {
       )}
 
       {isCreateJobOpen && creationMode === 'smart' && smartJobStep === 'upload' && (
-        <SmartJobUpload
-          onCancel={handleCloseCreateJobModal}
-          onExtractionSuccess={(data, text, metadata) => {
-            setExtractedData(data);
-            setSourceText(text);
-            setSourceMetadata(metadata);
-            setSmartJobStep('review');
-          }}
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="relative w-full max-w-3xl">
+            <SmartJobUpload
+              onCancel={handleCloseCreateJobModal}
+              onExtractionSuccess={(data, text, metadata) => {
+                setExtractedData(data);
+                setSourceText(text);
+                setSourceMetadata(metadata);
+                setSmartJobStep('review');
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {isCreateJobOpen && creationMode === 'smart' && smartJobStep === 'review' && extractedData && (
-        <SmartJobReview
-          extractedData={extractedData}
-          sourceText={sourceText}
-          metadata={sourceMetadata!}
-          onSaveAsDraft={handleCloseCreateJobModal}
-          onDiscard={handleCloseCreateJobModal}
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="relative w-full max-w-7xl h-[90vh]">
+            <button
+              type="button"
+              onClick={handleCloseCreateJobModal}
+              aria-label="Close"
+              className="absolute right-4 top-4 z-10 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <SmartJobReview
+              extractedData={extractedData}
+              sourceText={sourceText}
+              metadata={sourceMetadata!}
+              defaultClientId={proj.clientId}
+              onSaveAsDraft={handleCloseCreateJobModal}
+              onDiscard={handleCloseCreateJobModal}
+            />
+          </div>
+        </div>
       )}
 
       {isCreateJobOpen && creationMode === 'manual' && (

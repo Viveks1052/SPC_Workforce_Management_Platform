@@ -593,9 +593,6 @@ export default function JobsList() {
 
           {creationMode === 'smart' && smartJobStep === 'upload' && (
             <div className="relative w-full max-w-3xl">
-              <button onClick={handleCloseModal} className="absolute right-4 top-4 p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-lg transition-colors z-10">
-                <X className="w-5 h-5" />
-              </button>
               <SmartJobUpload 
                 onCancel={handleCloseModal}
                 onExtractionSuccess={(data, text, meta) => {
@@ -610,6 +607,14 @@ export default function JobsList() {
 
           {creationMode === 'smart' && smartJobStep === 'review' && extractedData && sourceMetadata && (
              <div className="relative w-full max-w-7xl h-[90vh]">
+               <button
+                 type="button"
+                 onClick={handleCloseModal}
+                 aria-label="Close"
+                 className="absolute right-4 top-4 z-10 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+               >
+                 <X className="w-5 h-5" />
+               </button>
                <SmartJobReview 
                  extractedData={extractedData}
                  sourceText={sourceText}

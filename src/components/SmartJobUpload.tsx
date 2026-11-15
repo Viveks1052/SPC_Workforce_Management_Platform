@@ -122,31 +122,50 @@ export default function SmartJobUpload({ onExtractionSuccess, onCancel }: SmartJ
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] w-full max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-sm">
+    <div className="relative flex flex-col items-center justify-center min-h-[400px] w-full max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-sm border border-slate-200">
+      <button
+        type="button"
+        onClick={onCancel}
+        aria-label="Close"
+        className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+      >
+        <X className="w-5 h-5" />
+      </button>
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-slate-800">Smart Job Creation</h2>
         <p className="text-slate-500 mt-2">Upload a Job Description (JD) to automatically extract requirements and details.</p>
       </div>
 
       {!file ? (
-        <div 
-          className="w-full border-2 border-dashed border-slate-300 rounded-xl p-12 flex flex-col items-center justify-center hover:bg-slate-50 hover:border-blue-400 transition-colors cursor-pointer group"
-          onClick={() => fileInputRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDrop}
-        >
-          <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <UploadCloud className="w-8 h-8" />
+        <div className="w-full space-y-6">
+          <div 
+            className="w-full border-2 border-dashed border-slate-300 rounded-xl p-12 flex flex-col items-center justify-center hover:bg-slate-50 hover:border-blue-400 transition-colors cursor-pointer group"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+          >
+            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <UploadCloud className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-800">Click or drag document to upload</h3>
+            <p className="text-sm text-slate-500 mt-2">Supports PDF, DOCX, TXT (Max 10MB)</p>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept=".pdf,.docx,.doc,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,text/plain"
+              onChange={handleFileChange}
+            />
           </div>
-          <h3 className="text-lg font-semibold text-slate-800">Click or drag document to upload</h3>
-          <p className="text-sm text-slate-500 mt-2">Supports PDF, DOCX, TXT (Max 10MB)</p>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
-            accept=".pdf,.docx,.doc,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,text/plain"
-            onChange={handleFileChange}
-          />
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       ) : (
         <div className="w-full space-y-6">

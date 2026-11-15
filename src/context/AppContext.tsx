@@ -140,8 +140,9 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
     const storedClients = safeParse<Client[]>('spc_clients', mockClients);
     
-    // Migrate to requirement-driven status
+    // Migrate to requirement/job-driven status
     const initialReqs = safeParse<Project[]>('spc_requirements', mockProjects);
+    const initialJobs = safeParse<Job[]>('spc_jobs', mockJobs);
     let changed = false;
     const syncedClients = storedClients.map(client => {
       // Legacy industry mapping
@@ -163,7 +164,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       }
 
-      const hasReqs = initialReqs.some(r => r.clientId === client.id);
+      const hasReqs = initialReqs.some(r => r.clientId === client.id) || initialJobs.some(j => j.clientId === client.id);
       const expectedStatus = hasReqs ? 'Active' : 'Inactive';
       if (client.status !== expectedStatus || client.industry !== mappedIndustry || client.industryOtherText !== mappedOther) {
         changed = true;
@@ -544,11 +545,11 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setProjects(newReqs);
     localStorage.setItem('spc_requirements', JSON.stringify(newReqs));
     
-    // Atomically recalculate client statuses based on requirement relationships
+    // Atomically recalculate client statuses based on requirement and job relationships
     setClients(currentClients => {
       let changed = false;
       const updatedClients = currentClients.map(client => {
-        const hasReqs = newReqs.some(r => r.clientId === client.id);
+        const hasReqs = newReqs.some(r => r.clientId === client.id) || jobs.some(j => j.clientId === client.id);
         const expectedStatus = hasReqs ? 'Active' : 'Inactive';
         if (client.status !== expectedStatus) {
           changed = true;
@@ -812,6 +813,23 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const newJobs: Job[] = [newJob, ...jobs];
     persistJobs(newJobs);
+
+    // Activate client and update activity / open positions when a job is linked to it
+    if (clientId) {
+      const isStandaloneJob = !projectId || projectId === 'none';
+      const updatedClients = clients.map(c => {
+        if (c.id === clientId) {
+          return {
+            ...c,
+            status: 'Active' as const,
+            openPositionsCount: isStandaloneJob ? c.openPositionsCount + newJob.openings : c.openPositionsCount,
+            lastActivity: nowIso,
+          };
+        }
+        return c;
+      });
+      persistClients(updatedClients);
+    }
 
     // Automatically mock 20 fresh candidate applications for this new job in fresh state
     const pool = candidates.length >= 20 ? candidates : mockCandidates;

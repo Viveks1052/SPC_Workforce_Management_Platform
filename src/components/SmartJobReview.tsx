@@ -11,9 +11,10 @@ interface SmartJobReviewProps {
   metadata: JobSourceMetadata;
   onSaveAsDraft: () => void;
   onDiscard: () => void;
+  defaultClientId?: string;
 }
 
-export default function SmartJobReview({ extractedData, sourceText, metadata, onSaveAsDraft, onDiscard }: SmartJobReviewProps) {
+export default function SmartJobReview({ extractedData, sourceText, metadata, onSaveAsDraft, onDiscard, defaultClientId }: SmartJobReviewProps) {
   const { clients, currentUser, createJob } = useApp();
 
   const initialJoining = extractedData.targetJoiningDate || '';
@@ -28,7 +29,7 @@ export default function SmartJobReview({ extractedData, sourceText, metadata, on
 
   const [formData, setFormData] = useState({
     title: extractedData.title || '',
-    clientId: '',
+    clientId: defaultClientId || '',
     location: extractedData.location || '',
     openings: extractedData.openings || 1,
     hiringModel: 'Client Hire' as HiringModel,
@@ -48,6 +49,10 @@ export default function SmartJobReview({ extractedData, sourceText, metadata, on
   const [showClientForm, setShowClientForm] = useState(false);
 
   useEffect(() => {
+    if (defaultClientId) {
+      setFormData(prev => ({ ...prev, clientId: defaultClientId }));
+      return;
+    }
     if (extractedData.clientName && !formData.clientId) {
       // Auto-map client if extracted
       const normName = extractedData.clientName.trim().toLowerCase();
@@ -56,7 +61,7 @@ export default function SmartJobReview({ extractedData, sourceText, metadata, on
         setFormData(prev => ({ ...prev, clientId: match.id }));
       }
     }
-  }, []);
+  }, [defaultClientId]);
 
   const validate = (isDraft: boolean = false) => {
     const newErrors: Record<string, string> = {};
@@ -85,8 +90,11 @@ export default function SmartJobReview({ extractedData, sourceText, metadata, on
   const handleSave = (status: JobStatus = 'Draft') => {
     if (!validate(status === 'Draft')) return;
     
+    const nowIso = new Date().toISOString();
+    const isPub = status === 'Open' && formData.visibility === 'Public';
     createJob({
       title: formData.title,
+      projectName: formData.title,
       clientId: formData.clientId,
       location: formData.location,
       openings: Number(formData.openings) || 1,
@@ -107,10 +115,13 @@ export default function SmartJobReview({ extractedData, sourceText, metadata, on
         }
         return dDate;
       })(),
-      assignedRecruiterId: currentUser?.id || '',
+      assignedRecruiterId: currentUser?.id || 'u3',
       visibility: formData.visibility,
       status: status,
-      isPublished: false,
+      isPublished: isPub,
+      createdAt: nowIso,
+      publishedAt: isPub ? nowIso : undefined,
+      firstPublishedAt: isPub ? nowIso : undefined,
       sourceMetadata: metadata,
     });
 
@@ -190,6 +201,7 @@ export default function SmartJobReview({ extractedData, sourceText, metadata, on
                   ) : (
                     <select 
                       value={formData.clientId}
+                      disabled={!!defaultClientId}
                       onChange={(e) => {
                         if (e.target.value === 'NEW') {
                           setShowClientForm(true);
@@ -200,13 +212,19 @@ export default function SmartJobReview({ extractedData, sourceText, metadata, on
                           }
                         }
                       }}
-                      className={cn("w-full rounded-lg border p-2.5 text-sm", errors.clientId ? "border-red-300 bg-red-50" : "border-slate-300 bg-slate-50")}
+                      className={cn(
+                        "w-full rounded-lg border p-2.5 text-sm",
+                        errors.clientId ? "border-red-300 bg-red-50" : "border-slate-300 bg-slate-50",
+                        defaultClientId && "bg-slate-100 text-slate-600 cursor-not-allowed font-medium"
+                      )}
                     >
                       <option value="">-- Select Client --</option>
                       {clients.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
-                      <option value="NEW" className="font-bold text-blue-600 bg-blue-50">+ Create New Client</option>
+                      {!defaultClientId && (
+                        <option value="NEW" className="font-bold text-blue-600 bg-blue-50">+ Create New Client</option>
+                      )}
                     </select>
                   )}
                   {!showClientForm && errors.clientId && <p className="text-red-500 text-xs mt-1">{errors.clientId}</p>}

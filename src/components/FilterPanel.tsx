@@ -63,23 +63,45 @@ export default function FilterPanel({ fields, values, onChange, onClear }: Filte
             )}
           </div>
           <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
-            {fields.map(field => (
-              <div key={field.key}>
-                <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5">
-                  {field.label}
-                </label>
-                <select
-                  value={values[field.key] || ''}
-                  onChange={e => onChange(field.key, e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
-                >
-                  <option value="">All</option>
-                  {field.options.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            ))}
+            {fields.map(field => {
+              const isSelected = Boolean(values[field.key]);
+              return (
+                <div key={field.key}>
+                  <label className={`flex items-center justify-between text-xs font-medium uppercase tracking-wider mb-1.5 ${
+                    isSelected ? 'text-blue-700 font-semibold' : 'text-slate-500'
+                  }`}>
+                    <span className="flex items-center gap-1.5">
+                      {field.label}
+                      {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
+                    </span>
+                    {isSelected && (
+                      <button
+                        type="button"
+                        onClick={() => onChange(field.key, '')}
+                        className="text-[10px] font-medium text-blue-600 hover:text-blue-800 normal-case tracking-normal"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </label>
+                  <select
+                    aria-label={field.label}
+                    value={values[field.key] || ''}
+                    onChange={e => onChange(field.key, e.target.value)}
+                    className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${
+                      isSelected
+                        ? 'border-blue-300 bg-blue-50/40 text-blue-900 font-medium'
+                        : 'border-slate-300 bg-white text-slate-700'
+                    }`}
+                  >
+                    <option value="">All</option>
+                    {field.options.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
           </div>
           <div className="px-4 py-3 border-t border-slate-100 bg-slate-50">
             <button

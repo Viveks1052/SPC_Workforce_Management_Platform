@@ -21,6 +21,8 @@ import { useApp } from '../context/AppContext';
 import { Client, Job } from '../types';
 import { INDUSTRY_OPTIONS } from '../lib/constants';
 import { Link } from 'react-router-dom';
+import ClientJobFormModal from './ClientJobFormModal';
+import { getHiringModelBadgeConfig } from '../lib/hiringModelUtils';
 
 interface ClientDetailDrawerProps {
   clientId: string | null;
@@ -30,6 +32,8 @@ interface ClientDetailDrawerProps {
 export default function ClientDetailDrawer({ clientId, onClose }: ClientDetailDrawerProps) {
   const { clients, jobs, applications } = useApp();
   const [activeTab, setActiveTab] = useState<'overview' | 'projects' | 'activity'>('overview');
+  const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   if (!clientId) return null;
 
@@ -39,7 +43,9 @@ export default function ClientDetailDrawer({ clientId, onClose }: ClientDetailDr
   const clientJobs = jobs.filter(r => r.clientId === client.id);
 
   const calculateFilled = (projectId: string) => {
-    return applications.filter(a => a.jobId === projectId && a.currentStage === 'Joined').length;
+    return applications.filter(
+      a => a.jobId === projectId && (a.currentStage === 'Joined' || a.currentStage === 'Hired/Placed')
+    ).length;
   };
 
   const activeJobsCount = clientJobs.filter(j => j.status !== 'Closed').length;
@@ -253,28 +259,76 @@ export default function ClientDetailDrawer({ clientId, onClose }: ClientDetailDr
 
               {/* TAB 2: LINKED JOBS */}
               {activeTab === 'projects' && (
-                <div className="space-y-3">
+                <div className="space-y-4">
+                  {/* Create Job Action Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">Client Job Openings</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Create and manage job openings directly linked to {client.name}.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setIsCreateJobModalOpen(true)}
+                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Create Job
+                    </button>
+                  </div>
+
+                  {toastMessage && (
+                    <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-medium animate-in fade-in duration-200">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{toastMessage}</span>
+                      </div>
+                      <button
+                        onClick={() => setToastMessage(null)}
+                        className="text-emerald-600 hover:text-emerald-800 p-0.5 rounded"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
                   {clientJobs.length > 0 ? (
                     <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
                       {clientJobs.map(job => {
                         const filled = calculateFilled(job.id);
-                        const progress = (filled / job.openings) * 100;
+                        const progress = job.openings > 0 ? (filled / job.openings) * 100 : 0;
+                        const hiringModelBadge = getHiringModelBadgeConfig(job.hiringModel);
                         return (
                           <div key={job.id} className="p-4 hover:bg-slate-50 transition-colors">
                             <div className="flex justify-between items-start gap-3">
                               <div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <Link 
                                     to={`/job-desk/${job.id}`}
                                     className="text-sm font-semibold text-gray-900 hover:text-blue-600 transition-colors text-left outline-none focus-visible:underline"
                                   >
                                     {job.title}
                                   </Link>
+                                  <span
+                                    className={cn(
+                                      "px-2 py-0.5 rounded text-[10px] font-semibold border",
+                                      hiringModelBadge.badgeClass
+                                    )}
+                                    title={hiringModelBadge.description}
+                                  >
+                                    {hiringModelBadge.label}
+                                  </span>
                                 </div>
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                                  <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">{job.id}</span>
+                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-1 flex-wrap">
+                                  <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">{job.code || job.id}</span>
                                   <span>•</span>
                                   <span>{job.location}</span>
+                                  {job.department && (
+                                    <>
+                                      <span>•</span>
+                                      <span>{job.department}</span>
+                                    </>
+                                  )}
                                 </div>
                               </div>
 
@@ -311,9 +365,19 @@ export default function ClientDetailDrawer({ clientId, onClose }: ClientDetailDr
                       })}
                     </div>
                   ) : (
-                    <div className="p-8 text-center text-slate-500 border border-dashed border-slate-200 rounded-xl">
+                    <div className="p-8 text-center text-slate-500 border border-dashed border-slate-200 rounded-xl bg-slate-50/30">
                       <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                      <p className="text-sm font-medium">No linked jobs for this client.</p>
+                      <p className="text-sm font-medium text-slate-700">No linked jobs for this client.</p>
+                      <p className="text-xs text-slate-500 mt-1 mb-4">
+                        Create a new job opening via JD upload or manual entry to start sourcing candidates for {client.name}.
+                      </p>
+                      <button
+                        onClick={() => setIsCreateJobModalOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Create First Job
+                      </button>
                     </div>
                   )}
                 </div>
@@ -353,6 +417,16 @@ export default function ClientDetailDrawer({ clientId, onClose }: ClientDetailDr
         </div>
 
       </div>
+
+      <ClientJobFormModal
+        isOpen={isCreateJobModalOpen}
+        onClose={() => setIsCreateJobModalOpen(false)}
+        client={client}
+        onJobCreated={() => {
+          setToastMessage(`Job linked to ${client.name} created successfully.`);
+          setTimeout(() => setToastMessage(null), 4000);
+        }}
+      />
     </>
   );
 }
