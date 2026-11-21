@@ -7,6 +7,7 @@ import { normalizeJob, normalizeApplication, normalizeOffer } from '../lib/statu
 import { normalizeSource } from '../lib/sourceUtils';
 import { isJobHiringModelLocked } from '../lib/hiringModelUtils';
 import { normalizeInterviewers, getInterviewFeedbackSummary, generateSecureFeedbackToken } from '../lib/interviewUtils';
+import { setActivityUser, trackOperation } from '../feedback/activity';
 
 interface AppContextType {
   currentUser: User | null;
@@ -617,6 +618,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const logout = () => {
+    setActivityUser(null);
     setCurrentUser(null);
   };
 
@@ -2127,16 +2129,16 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setQuickViewCandidateId,
         login,
         logout,
-        createClient,
+        createClient: (data) => trackOperation('createClient', () => createClient(data)),
         updateClient,
         deleteClient,
         deleteProject,
         createProject,
-        createCandidate,
+        createCandidate: (data) => trackOperation('createCandidate', () => createCandidate(data)),
         updateCandidate,
         deleteCandidate,
-        createJob,
-        updateJob,
+        createJob: (data, projectId) => trackOperation('createJob', () => createJob(data, projectId)),
+        updateJob: (jobId, updates) => trackOperation('updateJob', () => updateJob(jobId, updates)),
         updateJobHiringModel,
         startJoiningTracking,
         confirmJoined,
