@@ -533,3 +533,7 @@ Follow-up production build: PASS (1,785 modules); existing large-chunk warning r
 ## Admin-only feedback IDs ? 2026-11-21
 
 BETA-FB-004/005; TEST-BETA-FB-01/02. PASS: sequential FB-00001 IDs, persisted migration of existing feedback without changing UUIDs, reload stability, sequence continuation, display in admin detail, and absence from user confirmation. TypeScript and full suite pass: 62 tests / 11 files. UI change is text-only; browser visual verification was not rerun.
+
+## Admin ticket detail and filters ? 2026-11-22
+
+BETA-FB-003/004/005/006, TEST-BETA-FB-01/02/03: PASS for captured actions with outcomes, sanitized routes with no tokens/typed values, screenshot display and absent-image state, combined ID search/type/status/category filtering, clear/no-results behavior, persisted category changes, legacy Unclassified default and retained state after failed writes. Full suite: 64 tests / 11 files. TypeScript and production build PASS (existing chunk-size warning). Real-browser visual/native focus verification remains outstanding; responsive filter grid and wrapping timeline reviewed in code only.

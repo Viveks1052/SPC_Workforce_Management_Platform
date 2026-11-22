@@ -114,3 +114,5 @@
 - Verified compile and local static preview of built files.
 
 Feedback UX follow-up: right-side drawer and conversational prompts restored; Liam Parker Login ID; Issue / Bug versus Suggestion badges; only Open / Closed statuses with persisted close/reopen. TypeScript and 61 tests pass; browser visual verification remains outstanding.
+
+2026-11-22: Admin tickets show safe captured action details and screenshot/empty state. Dashboard has combined search, type, status and category filters. Product/Engineering/AI categories persist independently of Open/Closed. TypeScript, build and all 64 tests pass; browser visual verification remains outstanding.

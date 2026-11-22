@@ -137,3 +137,5 @@ Selected scope: [BETA-FB-001 through BETA-FB-006](../product/beta-feedback-phase
 Follow-up scope: BETA-FB-002 restores the right drawer and conversational prompts; BETA-FB-004/005 add persisted Open/Closed status and shared Login ID Liam Parker. Type badges distinguish Issue / Bug and Suggestion. Follow-up verification: 61 tests across 11 files and TypeScript pass, including migration, status persistence, failure retention and close/reopen flow. Visual browser verification remains outstanding.
 
 BETA-FB-004/005 admin-ID follow-up: service.ts allocates and migrates persisted readable IDs; FeedbackAdmin.tsx displays them only in list/detail. FeedbackPanel remains unchanged. Verified: TypeScript and all 62 tests across 11 files pass; tests cover stable IDs, legacy migration, sequence continuation and absence from user confirmation.
+
+2026-11-22 BETA-FB-003/004/005/006: admin action timeline and screenshot/empty states in FeedbackAdmin; search and type/status/category filters; category migration and persistent setCategory in service/model. Verified: TypeScript, production build and 64 tests / 11 files pass; browser visual verification remains outstanding.

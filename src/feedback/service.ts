@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { feedbackTypes } from './model';
+import { feedbackCategories, feedbackTypes } from './model';
 import type { FeedbackReport, FeedbackService, FeedbackState, FeedbackStorage } from './model';
 import { validScreenshot } from './screenshot';
 
@@ -16,6 +16,7 @@ function isReport(value: unknown): value is FeedbackReport {
     && feedbackTypes.includes(r.type) && typeof r.title === 'string' && typeof r.description === 'string'
     && !!r.context && Array.isArray(r.context.activity)
     && (r.status === undefined || r.status === 'Open' || r.status === 'Closed')
+    && (r.category === undefined || feedbackCategories.includes(r.category))
     && (r.adminId === undefined || /^FB-\d{5,}$/.test(r.adminId))
     && (!r.screenshot || validScreenshot(r.screenshot));
 }
@@ -26,7 +27,7 @@ export function createLocalFeedbackStorage(storage: () => StoragePort = () => wi
       if (!saved) return [];
       const parsed = JSON.parse(saved);
       if (parsed.version !== 2 || !Array.isArray(parsed.reports) || !parsed.reports.every(isReport)) throw new Error('Invalid feedback data');
-      const reports: FeedbackReport[] = parsed.reports.map((report: FeedbackReport) => ({ ...report, status: report.status ?? 'Open' }));
+      const reports: FeedbackReport[] = parsed.reports.map((report: FeedbackReport) => ({ ...report, status: report.status ?? 'Open', category: report.category ?? 'Unclassified' }));
       let migrated = false;
       // Assign older submissions first, preserving list order and existing UUIDs.
       for (const report of [...reports].reverse()) {
@@ -54,6 +55,16 @@ export function createMockFeedbackService(storage: FeedbackStorage = createLocal
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     getSnapshot: () => state,
     refresh,
+    async setCategory(reference, category) {
+      if (!feedbackCategories.includes(category)) throw new Error('Choose a valid category.');
+      await new Promise(resolve => setTimeout(resolve, delay));
+      const saved = storage.read();
+      if (!saved.some(report => report.reference === reference)) throw new Error('Feedback is no longer available.');
+      const reports = saved.map(report => report.reference === reference ? { ...report, category } : report);
+      storage.write(reports);
+      state = { reports, error: null };
+      emit();
+    },
     async setStatus(reference, status) {
       if (status !== 'Open' && status !== 'Closed') throw new Error('Choose Open or Closed.');
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -74,7 +85,7 @@ export function createMockFeedbackService(storage: FeedbackStorage = createLocal
       const report: FeedbackReport = {
         ...captured, title: captured.title.trim(), description: captured.description.trim(),
         reference: crypto.randomUUID(), createdAt: new Date().toISOString(), status: 'Open',
-        adminId: nextAdminId(saved),
+        adminId: nextAdminId(saved), category: 'Unclassified',
       };
       // Re-read so another tab's completed submissions are retained. No network transport.
       const reports = [report, ...saved];

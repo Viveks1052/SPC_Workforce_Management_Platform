@@ -8,7 +8,9 @@ export type FeedbackDraft = {
   screenshot?: Screenshot; context: TechnicalContext;
 };
 export type FeedbackStatus = 'Open' | 'Closed';
-export type FeedbackReport = FeedbackDraft & { reference: string; adminId: string; createdAt: string; status: FeedbackStatus };
+export const feedbackCategories = ['Unclassified', 'Product', 'Engineering', 'AI'] as const;
+export type FeedbackCategory = typeof feedbackCategories[number];
+export type FeedbackReport = FeedbackDraft & { reference: string; adminId: string; createdAt: string; status: FeedbackStatus; category: FeedbackCategory };
 export type FeedbackState = { reports: FeedbackReport[]; error: string | null };
 export interface FeedbackStorage {
   read(): FeedbackReport[];
@@ -20,6 +22,7 @@ export interface FeedbackService {
   refresh(): void;
   submit(draft: FeedbackDraft): Promise<FeedbackReport>;
   setStatus(reference: string, status: FeedbackStatus): Promise<void>;
+  setCategory(reference: string, category: FeedbackCategory): Promise<void>;
 }
 export interface FeedbackAuth {
   getAccount(): { name: string } | null;
